@@ -1,3 +1,6 @@
+-- REVIEW: I don't think globals are a good idea in general but regardless this comment adds nothing
+--         It'll be out-of-date very quickly when you make changes, particularly if you have many files
+--         including this globals.lua
 require('globals') -- tablex, imgui
 
 local List = {
@@ -10,10 +13,11 @@ local List = {
     end,
 
 	init = function (self)
+        -- REVIEW: this should really be a list of tables, not 3 tables each containing properties.
 		self.items = {
 			size = 0,
 			names = {},
-			bools = {},
+			bools = {}, -- REVIEW: at a glance I have no idea what bools or references means so these probably aren't great names
 			references = {},
 		}
 
@@ -21,6 +25,7 @@ local List = {
 	end,
 
 	add = function (self, name, bool, reference)
+        -- REVIEW: Shouldn't need to keep track of size yourself, thats what # is for
 		self.items.size = self.items.size + 1
 		table.insert(self.items.names, name)
 		table.insert(self.items.bools, bool)
@@ -30,7 +35,9 @@ local List = {
 	end,
 
 	select_index = function (self, selected_index)
+        -- REVIEW: v isn't used here so I would discard is with a _ naming convention, but that's personal taste
 		for i, v in ipairs(self.items.bools) do
+            -- REVIEW: can be simplified to just: self.items.bools[i] = i == selected index
 			if i == selected_index then 
 				self.items.bools[i] = true
 			else 
@@ -54,6 +61,7 @@ local Character = {
 	end,
 
     set_info = function (self, info)
+        -- REVIEW: might be personal taste but I would definitely write these copies out explicitly to make it clear what is happening here
         self.info = tablex.shallow_copy(info)
 
         return self
@@ -76,6 +84,8 @@ local actions = {
 	},
 }
 
+-- REVIEW: I'm not sure new_info is a great name, it's not very descriptive. create_character_stats or something? Should this be the Character class constructor??
+-- REVIEW: no need to shorten these names, really. I would fully describe what these variables mean: "strength", "defence", "speed" rather than str, def, spd
 local new_info = function (name, hp, str, def, spd, actions)
 	return {
 		name = name, 
@@ -88,6 +98,7 @@ local new_info = function (name, hp, str, def, spd, actions)
 	}
 end
 
+-- REVIEW: kinda bad smell here, shouldn't this be a table of "infos" rather than 6 seperate vars?
 local info_a = new_info('A', 100, 20, 10, 10, {actions.attack, actions.defend})
 local info_b = new_info('B', 100, 20, 10, 11, {actions.attack, actions.defend})
 local info_c = new_info('C', 100, 20, 10, 12, {actions.attack, actions.defend})
@@ -118,6 +129,8 @@ local characters = {
 local function generate_actions (character)
 	local actions = List:new()
 	for i, v in ipairs(character.info.actions) do
+        -- REVIEW: what's wrong with just i == 1? I don't see why you have the ternary
+        -- actions:add(v.name, i == 1, v)
 		local bool = (i == 1) and true or false
 		actions:add(v.name, bool, v)
 	end
@@ -125,9 +138,11 @@ local function generate_actions (character)
 	return actions
 end
 
+-- REVIEW: you're shadowing the characters var up above, which might not be an issue here but can be confusing potentially
 local function generate_targets (characters)
 	local targets = List:new()
 	for i, v in ipairs(characters) do
+        -- REVIEW: same here
 		local bool = (i == 1) and true or false
 		targets:add(v.info.name, bool, v)
 	end
@@ -188,6 +203,7 @@ local imgui_window_ally = function ()
     if imgui.Begin('Allies') then
 		if imgui.BeginTabBar('') then
 
+            -- REVIEW: it's not clear to me why only these 3 are allies. Shouldn't this be controlled by a property on the Character?
         	imgui_tab_character(characters_menu_data[1])
 			imgui_tab_character(characters_menu_data[2])
 			imgui_tab_character(characters_menu_data[3])
@@ -202,6 +218,7 @@ local imgui_window_enemy = function ()
     if imgui.Begin('Enemies') then
 		if imgui.BeginTabBar('') then
 
+            -- REVIEW: see above
         	imgui_tab_character(characters_menu_data[4])
 			imgui_tab_character(characters_menu_data[5])
 			imgui_tab_character(characters_menu_data[6])
@@ -220,6 +237,7 @@ local imgui_window_manager = function ()
 				local target_index
 				local action_index
 				for i2, v2 in ipairs(v.actions.items.bools) do
+                    -- REVIEW: 'if v2 then' is enough here, no need for explicit true check
 					if v2 == true then
 						action_index = i2
 						break
@@ -232,10 +250,16 @@ local imgui_window_manager = function ()
 					end
 				end
 				local str = ''
+                -- REVIEW: might be a good contender for string.format here rather than a lot of concatentation
+                -- local action_name = v.actions.items.names[action_index]
+                -- local target_name = v.targets.items.names[target_index]
+                -- local str = ("%s %s %s"):format(character.info.name, action_name, item_name)
+                local str = ''
 				str = str..character.info.name..' '
 				str = str..v.actions.items.names[action_index]..' '
 				str = str..v.targets.items.names[target_index]
 
+                -- REVIEW: I find this kind of difficult to read, I think some more locals with good names will help though
 				v.actions.items.references[action_index].execute(character.info, v.targets.items.references[target_index].info)
 				table.insert(battle_log, str)
 			end
@@ -268,6 +292,7 @@ love.draw = function ()
     imgui.love.RenderDrawLists()
 end
 
+-- REVIEW: my linter goes crazy from here on because of the undefined imgui, unused variables and empty ifs
 love.mousemoved = function (x, y, ...)
     imgui.love.MouseMoved(x, y)
     if not imgui.love.GetWantCaptureMouse() then
